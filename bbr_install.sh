@@ -1,27 +1,27 @@
 #!/bin/bash
 #
-# BBR & System Optimization Script for Ubuntu
-# Supports: Ubuntu 18.04/20.04/22.04
-# Author: TraeAI
-# Version: 1.0.0
+# Ubuntu BBR 加速与优化脚本
+# 支持: Ubuntu 18.04/20.04/22.04
+# 作者: TraeAI
+# 版本: 1.1.0
 
-# Colors
+# 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;36m'
 PLAIN='\033[0m'
 
-# Paths
+# 路径定义
 SYSCTL_CONF="/etc/sysctl.conf"
 SYSCTL_BACKUP="/etc/sysctl.conf.bak.$(date +%F_%H-%M-%S)"
 LIMITS_CONF="/etc/security/limits.conf"
 LOG_FILE="/var/log/bbr_install.log"
 
-# Check Root
-[[ $EUID -ne 0 ]] && echo -e "${RED}Error: This script must be run as root!${PLAIN}" && exit 1
+# 检查 Root 权限
+[[ $EUID -ne 0 ]] && echo -e "${RED}错误: 本脚本必须以 root 身份运行!${PLAIN}" && exit 1
 
-# Logging
+# 日志函数
 log() {
     local level=$1
     shift
@@ -30,71 +30,71 @@ log() {
     echo -e "${timestamp} [${level}] ${msg}" >> "${LOG_FILE}"
     
     case $level in
-        "INFO") echo -e "${GREEN}[INFO]${PLAIN} ${msg}" ;;
-        "WARN") echo -e "${YELLOW}[WARN]${PLAIN} ${msg}" ;;
-        "ERROR") echo -e "${RED}[ERROR]${PLAIN} ${msg}" ;;
+        "INFO") echo -e "${GREEN}[信息]${PLAIN} ${msg}" ;;
+        "WARN") echo -e "${YELLOW}[警告]${PLAIN} ${msg}" ;;
+        "ERROR") echo -e "${RED}[错误]${PLAIN} ${msg}" ;;
     esac
 }
 
-# Check OS
+# 检查操作系统
 check_os() {
     if [[ -f /etc/os-release ]]; then
         source /etc/os-release
         if [[ "$ID" != "ubuntu" ]]; then
-            log "WARN" "This script is optimized for Ubuntu. Detected: $ID. Continuing anyway..."
+            log "WARN" "本脚本针对 Ubuntu 优化。检测到系统为: $ID。将继续执行..."
         fi
     else
-        log "ERROR" "Unsupported OS. /etc/os-release not found."
+        log "ERROR" "不支持的操作系统。未找到 /etc/os-release。"
         exit 1
     fi
 }
 
-# Backup Config
+# 备份配置
 backup_config() {
     if [[ ! -f "$SYSCTL_BACKUP" ]]; then
         cp "$SYSCTL_CONF" "$SYSCTL_BACKUP"
-        log "INFO" "Backup created: $SYSCTL_BACKUP"
+        log "INFO" "已创建备份: $SYSCTL_BACKUP"
     else
-        log "INFO" "Backup already exists for this session."
+        log "INFO" "本次会话已存在备份。"
     fi
 }
 
-# Install XanMod Kernel
+# 安装 XanMod 内核
 install_xanmod() {
-    log "INFO" "Preparing to install XanMod Kernel..."
-    log "WARN" "This will add the XanMod repository and install the kernel."
+    log "INFO" "准备安装 XanMod 内核..."
+    log "WARN" "这将添加 XanMod 仓库并安装新内核。"
     
-    read -p "Do you want to continue? [y/N] " -n 1 -r
+    read -p "是否继续? [y/N] " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        log "INFO" "Installation cancelled."
+        log "INFO" "安装已取消。"
         return
     fi
 
     apt-get update -y
     apt-get install -y wget gnupg
     
-    log "INFO" "Adding XanMod GPG key..."
+    log "INFO" "添加 XanMod GPG 密钥..."
     wget -qO - https://dl.xanmod.org/gpg.key | gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg --yes
     
-    log "INFO" "Adding XanMod Repository..."
+    log "INFO" "添加 XanMod 仓库..."
     echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | tee /etc/apt/sources.list.d/xanmod-release.list
     
-    log "INFO" "Installing XanMod Kernel..."
+    log "INFO" "正在安装 XanMod 内核..."
     apt-get update -y
-    # Install generic compatible version
+    # 安装通用兼容版本
     apt-get install -y linux-xanmod-x64v1
     
-    log "INFO" "XanMod Kernel installed. Please reboot to apply changes."
-    echo -e "${YELLOW}System needs to reboot to load the new kernel.${PLAIN}"
-    read -p "Reboot now? [y/N] " -n 1 -r
+    log "INFO" "XanMod 内核安装完成。请重启系统以生效。"
+    echo -e "${YELLOW}系统需要重启以加载新内核。${PLAIN}"
+    read -p "现在重启吗? [y/N] " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         reboot
     fi
 }
 
-# Enable BBR
+# 启用 BBR
 enable_bbr() {
     local algo=$1
     local qdisc=$2
@@ -102,15 +102,15 @@ enable_bbr() {
     [[ -z "$algo" ]] && algo="bbr"
     [[ -z "$qdisc" ]] && qdisc="fq"
 
-    log "INFO" "Enabling TCP Congestion Control: $algo with Qdisc: $qdisc"
+    log "INFO" "正在启用 TCP 拥塞控制: $algo (队列算法: $qdisc)"
     
     backup_config
     
-    # Remove existing BBR lines
+    # 移除现有 BBR 配置
     sed -i '/net.core.default_qdisc/d' "$SYSCTL_CONF"
     sed -i '/net.ipv4.tcp_congestion_control/d' "$SYSCTL_CONF"
     
-    # Add new config
+    # 添加新配置
     echo "net.core.default_qdisc = $qdisc" >> "$SYSCTL_CONF"
     echo "net.ipv4.tcp_congestion_control = $algo" >> "$SYSCTL_CONF"
     
@@ -119,27 +119,27 @@ enable_bbr() {
     verify_bbr
 }
 
-# Verify BBR
+# 验证 BBR
 verify_bbr() {
     local current_algo=$(sysctl -n net.ipv4.tcp_congestion_control)
     local current_qdisc=$(sysctl -n net.core.default_qdisc)
     
     if [[ "$current_algo" == *"bbr"* || "$current_algo" == *"xanmod"* ]]; then
-        log "INFO" "BBR is active! (Algo: $current_algo, Qdisc: $current_qdisc)"
-        echo -e "${GREEN}Success: BBR is running.${PLAIN}"
+        log "INFO" "BBR 已生效! (算法: $current_algo, 队列: $current_qdisc)"
+        echo -e "${GREEN}成功: BBR 正在运行。${PLAIN}"
     else
-        log "WARN" "BBR might not be active. Current: $current_algo / $current_qdisc"
+        log "WARN" "BBR 可能未生效。当前状态: $current_algo / $current_qdisc"
     fi
 }
 
-# System Optimizations
+# 系统优化
 optimize_system() {
-    log "INFO" "Applying system optimizations..."
+    log "INFO" "正在应用系统优化..."
     backup_config
     
     cat >> "$SYSCTL_CONF" <<EOF
 
-# --- BBR Script Optimizations ---
+# --- BBR 脚本优化配置 ---
 fs.file-max = 1000000
 net.core.rmem_max = 67108864
 net.core.wmem_max = 67108864
@@ -161,65 +161,65 @@ net.ipv4.tcp_mtu_probing = 1
 # ------------------------------
 EOF
 
-    # Optimize Limits
+    # 优化资源限制
     echo "* soft nofile 51200" >> "$LIMITS_CONF"
     echo "* hard nofile 51200" >> "$LIMITS_CONF"
     echo "root soft nofile 51200" >> "$LIMITS_CONF"
     echo "root hard nofile 51200" >> "$LIMITS_CONF"
     
     sysctl -p >/dev/null 2>&1
-    log "INFO" "System optimizations applied."
+    log "INFO" "系统优化已应用。"
 }
 
-# Configure Timezone
+# 配置时区
 configure_timezone() {
-    log "INFO" "Configuring Timezone..."
+    log "INFO" "正在配置时区..."
     dpkg-reconfigure tzdata
     apt-get install -y ntpdate
     ntpdate pool.ntp.org
-    log "INFO" "Time synchronized."
+    log "INFO" "时间已同步。"
 }
 
-# Uninstall / Restore
+# 还原/卸载
 restore_defaults() {
-    log "INFO" "Restoring default settings..."
+    log "INFO" "正在还原默认设置..."
     
     if [[ -f "$SYSCTL_BACKUP" ]]; then
         cp "$SYSCTL_BACKUP" "$SYSCTL_CONF"
         sysctl -p >/dev/null 2>&1
-        log "INFO" "Restored sysctl.conf from backup."
+        log "INFO" "已从备份还原 sysctl.conf。"
     else
-        # Manual cleanup if no backup
-        sed -i '/--- BBR Script Optimizations ---/,/# ------------------------------/d' "$SYSCTL_CONF"
+        # 无备份时手动清理
+        sed -i '/--- BBR 脚本优化配置 ---/,/# ------------------------------/d' "$SYSCTL_CONF"
         sed -i '/net.core.default_qdisc/d' "$SYSCTL_CONF"
         sed -i '/net.ipv4.tcp_congestion_control/d' "$SYSCTL_CONF"
-        log "INFO" "Cleaned up sysctl.conf manually."
+        log "INFO" "已手动清理 sysctl.conf。"
     fi
     
-    echo -e "${GREEN}System restored to previous state (kernel remains installed).${PLAIN}"
+    echo -e "${GREEN}系统已还原至先前状态 (内核保持安装)。${PLAIN}"
 }
 
-# Main Menu
+# 主菜单
 show_menu() {
     clear
     echo -e "${BLUE}================================================${PLAIN}"
-    echo -e "${BLUE}       Ubuntu BBR & Optimization Script         ${PLAIN}"
+    echo -e "${BLUE}       Ubuntu BBR 加速与优化脚本                ${PLAIN}"
     echo -e "${BLUE}================================================${PLAIN}"
-    echo -e "OS: $(source /etc/os-release && echo $PRETTY_NAME)"
-    echo -e "Kernel: $(uname -r)"
-    echo -e "Current Algo: $(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo 'Unknown')"
+    echo -e "操作系统: $(source /etc/os-release && echo $PRETTY_NAME)"
+    echo -e "内核版本: $(uname -r)"
+    echo -e "当前算法: $(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null || echo '未知')"
     echo -e "${BLUE}================================================${PLAIN}"
-    echo -e "1. Enable Standard BBR"
-    echo -e "2. Install XanMod Kernel (Advanced BBR/CAKE)"
-    echo -e "3. Switch to CUBIC"
-    echo -e "4. Switch to Reno"
-    echo -e "5. Apply System Optimizations (Limits, Sysctl)"
-    echo -e "6. Configure Timezone & Sync"
-    echo -e "7. Restore Defaults / Uninstall"
-    echo -e "0. Exit"
+    echo -e "1. 启用标准 BBR (推荐)"
+    echo -e "2. 安装 XanMod 内核 (高级 BBR/CAKE)"
+    echo -e "3. 切换至 CUBIC 算法"
+    echo -e "4. 切换至 Reno 算法"
+    echo -e "5. 应用系统优化 (连接数、Sysctl)"
+    echo -e "6. 配置时区与同步时间"
+    echo -e "7. 还原默认设置 / 卸载优化"
+    echo -e "0. 退出脚本"
     echo -e "${BLUE}================================================${PLAIN}"
     
-    read -p "Enter choice [0-7]: " choice
+    read -p "请输入选项 [0-7]: " choice
     
     case $choice in
         1) enable_bbr "bbr" "fq" ;;
@@ -230,23 +230,23 @@ show_menu() {
         6) configure_timezone ;;
         7) restore_defaults ;;
         0) exit 0 ;;
-        *) echo -e "${RED}Invalid choice${PLAIN}" ;;
+        *) echo -e "${RED}无效的选项${PLAIN}" ;;
     esac
 }
 
-# Argument Parsing
+# 参数解析
 if [[ $# -gt 0 ]]; then
     case $1 in
         --enable-bbr) enable_bbr "bbr" "fq" ;;
         --install-xanmod) install_xanmod ;;
         --optimize) optimize_system ;;
         --restore) restore_defaults ;;
-        *) echo "Usage: $0 [--enable-bbr | --install-xanmod | --optimize | --restore]" ;;
+        *) echo "用法: $0 [--enable-bbr | --install-xanmod | --optimize | --restore]" ;;
     esac
 else
     check_os
     while true; do
         show_menu
-        read -p "Press Enter to continue..."
+        read -p "按回车键继续..."
     done
 fi
