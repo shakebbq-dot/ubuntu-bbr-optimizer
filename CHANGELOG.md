@@ -2,6 +2,11 @@
 
 All notable changes to the BBR Optimization Script will be documented in this file.
 
+## [1.1.0] - 2025-12-07
+### Changed
+- **Localization:** Updated interface, logs, and menu to Chinese.
+- **Compatibility:** `uninstall.sh` now supports removing both English and Chinese configuration blocks.
+
 ## [1.0.0] - 2025-12-07
 
 ### Added
