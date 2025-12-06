@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Uninstall Script for BBR Optimization
+# BBR 优化卸载脚本
 #
 
 RED='\033[0;31m'
@@ -9,32 +9,33 @@ PLAIN='\033[0m'
 
 SYSCTL_CONF="/etc/sysctl.conf"
 
-echo -e "${RED}Warning: This will remove network optimizations and BBR configuration.${PLAIN}"
-read -p "Are you sure? [y/N] " -n 1 -r
+echo -e "${RED}警告: 这将移除所有网络优化和 BBR 配置。${PLAIN}"
+read -p "确定要继续吗? [y/N] " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 1
 fi
 
-# Clean sysctl
-echo "Cleaning sysctl.conf..."
+# 清理 sysctl
+echo "正在清理 sysctl.conf..."
+sed -i '/--- BBR 脚本优化配置 ---/,/# ------------------------------/d' "$SYSCTL_CONF"
 sed -i '/--- BBR Script Optimizations ---/,/# ------------------------------/d' "$SYSCTL_CONF"
 sed -i '/net.core.default_qdisc/d' "$SYSCTL_CONF"
 sed -i '/net.ipv4.tcp_congestion_control/d' "$SYSCTL_CONF"
 
-# Apply changes
+# 应用更改
 sysctl -p
 
-# Remove XanMod Repo if exists
+# 移除 XanMod 仓库
 if [[ -f /etc/apt/sources.list.d/xanmod-release.list ]]; then
-    echo "Detected XanMod repository."
-    read -p "Do you want to remove the XanMod repository source? (Kernel will remain) [y/N] " -n 1 -r
+    echo "检测到 XanMod 仓库。"
+    read -p "是否移除 XanMod 仓库源? (内核将保留) [y/N] " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         rm -f /etc/apt/sources.list.d/xanmod-release.list
         rm -f /usr/share/keyrings/xanmod-archive-keyring.gpg
-        echo "XanMod repository removed."
+        echo "XanMod 仓库已移除。"
     fi
 fi
 
-echo -e "${GREEN}Uninstall complete. Original network settings restored.${PLAIN}"
+echo -e "${GREEN}卸载完成。原始网络设置已恢复。${PLAIN}"
