@@ -7,6 +7,17 @@ All notable changes to the BBR Optimization Script will be documented in this fi
 - **Localization:** Updated interface, logs, and menu to Chinese.
 - **Compatibility:** `uninstall.sh` now supports removing both English and Chinese configuration blocks.
 
+## [2.0.0] - 2026-04-21
+### Changed
+- **Cross-distro:** Refactored to feature-gated tuning (kernel 3.10+) and sysctl.d/limits.d based config.
+- **Idempotency & rollback:** Writes managed config files and supports clean restore/uninstall.
+- **Security:** Removed insecure download guidance and switched XanMod repo URL to HTTPS.
+### Added
+- **Smart selection:** Auto congestion control selection (`bbr → cubic → reno`).
+- **Adaptive tuning:** Optional RTT probe and `autotune` loop.
+- **Observability:** Basic status monitoring and logrotate integration.
+- **Tests & docs:** Added unit/stress scripts and deployment guide; added remediation and compatibility reports.
+
 ## [1.0.0] - 2025-12-07
 
 ### Added

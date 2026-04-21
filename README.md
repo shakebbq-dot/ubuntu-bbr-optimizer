@@ -5,46 +5,50 @@
 <a name="english"></a>
 ## English Documentation
 
-A comprehensive Bash script to manage TCP BBR congestion control and system network optimizations on Ubuntu 18.04, 20.04, and 22.04 LTS.
+A comprehensive Bash script to manage TCP congestion control and system network optimizations across major Linux distributions (kernel 3.10+).
 
 ### Features
-*   **Multi-Version Support:** Standard BBR (Native) and XanMod Kernel (Advanced BBR/CAKE).
-*   **Algorithm Switching:** Easily switch between BBR, CUBIC, and Reno.
-*   **System Optimization:** Auto-tune `sysctl`, file limits, and memory settings.
-*   **Safety:** Auto-backups and easy uninstallation.
+*   **Cross-Distro:** Ubuntu/Debian/CentOS/RHEL/Fedora/Arch/openSUSE (best-effort, kernel feature-gated).
+*   **Smart CC Selection:** Auto-selects the best available congestion control (`bbr` → `cubic` → `reno`).
+*   **Sysctl.d Based:** Writes to `/etc/sysctl.d/99-bbr-optimizer.conf` (idempotent, removable).
+*   **Limits.d Based:** Writes to `/etc/security/limits.d/99-bbr-optimizer.conf` when available.
+*   **RTT-Adaptive Buffers:** Optional RTT probe to adapt `rmem/wmem` sizing.
+*   **Rollback:** `restore/uninstall` removes managed config files.
 
 ### Usage
 
 1.  **Download & Permissions:**
     ```bash
-    wget -N --no-check-certificate "https://raw.githubusercontent.com/shakebbq-dot/ubuntu-bbr-optimizer/main/bbr_install.sh" && chmod +x bbr_install.sh && sudo ./bbr_install.sh
+    curl -fsSL "https://raw.githubusercontent.com/shakebbq-dot/ubuntu-bbr-optimizer/main/bbr_install.sh" -o bbr_install.sh && chmod +x bbr_install.sh && sudo ./bbr_install.sh
     ```
 2.  **Interactive Mode:** Run without arguments to see the menu.
 3.  **Batch Mode:**
     *   `./bbr_install.sh --enable-bbr` (Enable Standard BBR)
     *   `./bbr_install.sh --install-xanmod` (Install XanMod Kernel)
     *   `./bbr_install.sh --optimize` (Apply System Tweaks)
+    *   `./bbr_install.sh enable --cc=auto --qdisc=auto --rtt-host=1.1.1.1` (Smart apply with RTT probe)
+    *   `./bbr_install.sh restore` (Remove managed optimizations)
 
 ---
 
 <a name="chinese"></a>
 ## 中文说明 (Chinese Documentation)
 
-这是一个专为 Ubuntu 18.04/20.04/22.04 LTS 设计的 TCP BBR 拥塞控制管理与系统网络优化脚本。
+这是一个面向多种 Linux 发行版（内核 3.10+）的 TCP 拥塞控制管理与系统网络优化脚本。
 
 ### 主要功能
-1.  **多版本支持**：
-    *   **标准版 BBR**：在现有内核（4.9+）上启用原生 BBR。
-    *   **XanMod 内核**：自动安装高性能 XanMod 内核（支持更高级的 BBRv2/CAKE 算法，替代不稳定的魔改版内核）。
+1.  **多发行版支持**：
+    *   在不同发行版上按内核能力进行特性降级（例如没有 `bbr` 时自动切换到 `cubic/reno`）。
+    *   **XanMod 内核**：仅在 Ubuntu/Debian 上提供安装入口（需重启）。
 2.  **算法切换**：
     *   支持在 BBR、CUBIC（默认）、Reno 等算法间自由切换。
-3.  **系统全方位优化**：
-    *   **网络参数**：自动优化 `sysctl.conf`，提升高并发下的吞吐量。
-    *   **资源限制**：提高文件描述符（`ulimit`）和最大连接数限制。
-    *   **基础配置**：包含时区设置与时间同步。
+3.  **系统优化**：
+    *   **网络参数**：写入 `/etc/sysctl.d/99-bbr-optimizer.conf`（幂等、可回滚）。
+    *   **资源限制**：写入 `/etc/security/limits.d/99-bbr-optimizer.conf`（若系统支持）。
+    *   **自适应**：可选 RTT 探测，根据延迟自动调整 `rmem/wmem` 上限。
 4.  **安全保障**：
-    *   修改配置前自动备份 `/etc/sysctl.conf`。
-    *   提供独立卸载脚本，一键回滚。
+    *   使用独立配置文件，卸载时直接移除并重载 sysctl。
+    *   提供 `restore/uninstall` 路径快速回滚。
 
 ### 使用方法
 
@@ -52,7 +56,7 @@ A comprehensive Bash script to manage TCP BBR congestion control and system netw
 下载脚本后，赋予执行权限并运行：
 
 ```bash
-wget -N --no-check-certificate "https://raw.githubusercontent.com/shakebbq-dot/ubuntu-bbr-optimizer/main/bbr_install.sh" && chmod +x bbr_install.sh && sudo ./bbr_install.sh
+curl -fsSL "https://raw.githubusercontent.com/shakebbq-dot/ubuntu-bbr-optimizer/main/bbr_install.sh" -o bbr_install.sh && chmod +x bbr_install.sh && sudo ./bbr_install.sh
 ```
 
 #### 2. 菜单功能说明
@@ -69,6 +73,8 @@ wget -N --no-check-certificate "https://raw.githubusercontent.com/shakebbq-dot/u
 *   启用 BBR: `./bbr_install.sh --enable-bbr`
 *   安装内核: `./bbr_install.sh --install-xanmod`
 *   系统优化: `./bbr_install.sh --optimize`
+*   智能应用（自动选择算法）: `./bbr_install.sh enable --cc=auto --qdisc=auto --rtt-host=1.1.1.1`
+*   回滚卸载: `./bbr_install.sh restore` 或 `./uninstall.sh`
 
 ### 注意事项
 *   本脚本需要 root 权限运行。
